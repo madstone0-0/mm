@@ -11,11 +11,23 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-set(CMAKE_C_FLAGS "-lncursesw")
-set(CMAKE_CXX_FLAGS_DEBUG "-ggdb -fsanitize=address")
+option(ARDUINO "Arduino" OFF)
+message("Arduino: ${ARDUINO}")
+if(NOT ARDUINO) 
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+    set(CMAKE_C_FLAGS "-lncursesw")
+    set(CMAKE_CXX_FLAGS_DEBUG "-ggdb -fsanitize=address")
 # set(CMAKE_CXX_FLAGS_DEBUG "-ggdb")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -fno-ident -ftree-vectorize -ffast-math -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,-s -flto")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -fno-ident -ftree-vectorize -ffast-math -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,-s -flto")
+else()
+    set(CMAKE_TOOLCHAIN_FILE cmake/ArduinoToolchain.cmake) # Arduino Toolchain
+    include(cmake/Platform/Arduino.cmake)
+    print_board_list()
+    print_programmer_list()
+    set(ARDUINO_DEFAULT_BOARD uno) # Default Board ID
+    set(ARDUINO_DEFAULT_PORT /dev/ttyACM0) # Default Port
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # add_compile_options(
 # "-Wall" "-Wextra" "-std=c++20" "-fmodules-ts" "-fconcepts"
@@ -28,26 +40,5 @@ include_directories(${INCLUDE})
 set(UTILS ${INCLUDE}/utils.hpp)
 set(THIRD_PARTY ${INCLUDE}/third_party)
 # file(GLOB_RECURSE HEADERS "src/_includes/*.hpp")
-
-#################
-# PkgConfig     #
-#################
-find_package(PkgConfig REQUIRED)
-pkg_search_module(TBB REQUIRED tbb IMPORTED_TARGET)
-
-#################
-# Catch2        #
-#################
-find_package(Catch2 3 REQUIRED)
-
-#################
-# Boost Library #
-#################
-set( Boost_USE_STATIC_LIBS ON )
-set(Boost_USE_MULTITHREADED ON)
-set( Boost_USE_STATIC_RUNTIME OFF )
-find_package(Boost COMPONENTS program_options REQUIRED)
-include_directories(${Boost_INCLUDE_DIR})
-# link_libraries(${Boost_LIBRARIES})
 
 add_subdirectory(src)
