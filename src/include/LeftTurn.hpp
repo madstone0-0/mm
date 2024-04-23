@@ -3,18 +3,20 @@
 #include "Algorithm.hpp"
 
 struct LeftTurn : public Algorithm {
+    LeftTurn(API* api) : Algorithm(api) {}
+
     void start() override {
         log("Start");
         while (true) {
-            if (!API::wallLeft()) {
-                API::turnLeft();
+            if (api->wallLeft()) {
+                api->turnLeft();
                 log("Left turn");
             }
-            while (API::wallFront()) {
-                API::turnRight();
+            while (api->wallFront()) {
+                api->turnRight();
                 log("Right turn");
             }
-            API::moveForward();
+            api->moveForward();
         }
     }
 

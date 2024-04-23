@@ -11,9 +11,10 @@ using namespace std;
 void log(const std::string& text) { std::cerr << text << '\n'; }
 
 int main() {
-    auto left{LeftTurn{}};
-    auto mazeDim{Coords{16, 16}};
-    auto flood{FloodV2{mazeDim}};
+    MmsAPI api{};
+    auto left{LeftTurn{&api}};
+    auto mazeDim{Coords{api.mazeWidth(), api.mazeHeight()}};
+    auto flood{FloodV2{&api, mazeDim}};
 
     Algorithm* algo = &flood;
 
