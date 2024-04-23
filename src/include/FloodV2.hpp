@@ -8,6 +8,7 @@
 #include <format>
 #include <iostream>
 #include <queue>
+#include <ranges>
 #include <sstream>
 #include <vector>
 
@@ -711,9 +712,25 @@ class FloodV2 : public Algorithm {
         }
     }
 
+    bool isStuck() {
+        auto surroundings{getSurroundings(currPos)};
+        return rn::any_of(surroundings, [this](auto s) {
+            if (!wall(s) && isAccessible(currPos, s)) return indexFlood(s) == FLOOD_VAL;
+            return false;
+        });
+    }
+
     void start() override {
         int state = 0;
         bool fast{};
+        bool goingToStart{};
+
+        auto backToStart = [this, &goingToStart]() {
+            log("Stuck!");
+            changeDestination({0, 0});
+            calcFlood(centers);
+            goingToStart = true;
+        };
 
         calcFlood(centers);
         while (true) {
@@ -726,90 +743,114 @@ class FloodV2 : public Algorithm {
             // check for walls
             // update walls
             updateWalls(L, R, F);
-            const Coords botRight{0, mazeDim.y - 1};
-            const Coords topLeft{mazeDim.x - 1, 0};
+            const Coords tpL{0, mazeDim.y - 1};
+            const Coords btmR{mazeDim.x - 1, 0};
 
             if (indexFlood(currPos) != 0) {
                 switch (state) {
                     case 0:
                         appendCenters();
-                        // log("In State 0");
+                        log("In State 0");
                         break;
                     case 1:
                         // appendDest({15, 0});
-                        appendDest(topLeft);
+                        if (!goingToStart) {
+                            if (!isStuck()) {
+                                appendDest(btmR);
+                            } else
+                                backToStart();
+                        }
+
                         fast = false;
-                        // log("In State 1");
+                        log("In State 1");
                         break;
                     case 2:
                         appendDest({0, 0});
                         fast = false;
-                        // log("In State 2");
+                        log("In State 2");
                         break;
                     case 3:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        // log("In State 3");
+                        log("In State 3");
                         break;
                     case 4:
                         // appendDest({0, 15});
-                        appendDest(botRight);
+                        if (!goingToStart) {
+                            if (!isStuck())
+                                appendDest(tpL);
+                            else
+                                backToStart();
+                        }
                         fast = false;
-                        // log("In State 4");
+                        log("In State 4");
                         break;
                     case 5:
                         appendDest({0, 0});
                         fast = false;
-                        // log("In State 5");
+                        log("In State 5");
                         break;
                     case 6:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        // log("In State 6");
+                        log("In State 6");
+                        break;
+                    case 7:
+                        appendDest({0, 0});
+                        fast = false;
+                        log("In state 7");
                         break;
                 }
                 calcFlood3();
             } else {
                 switch (state) {
+                    case 7:
+                        log("On 0 In State 7");
+                        return;
+                        break;
                     case 6:
                         center();
-                        return;
+                        changeDestination({0, 0});
+                        calcFlood3();
+                        state++;
+                        log("On 0 In State 6");
                         break;
                     case 5:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        // log("In State 5");
+                        log("On 0 In State 5");
                         break;
                     case 4:
                         changeDestination({0, 0});
                         state++;
-                        // log("In State 4");
+                        log("On 0 In State 4");
                         break;
                     case 3:
-                        changeDestination(topLeft);
+                        changeDestination(btmR);
                         state++;
-                        // log("In State 3");
+                        log("On 0 In State 3");
                         break;
                     case 2:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        // log("In State 2");
+                        log("On 0 In State 2");
                         break;
                     case 1:
+                        goingToStart = false;
                         changeDestination({0, 0});
                         state++;
-                        // log("In State 1");
+                        log("On 0 In State 1");
                         break;
                     case 0:
                         center();
-                        changeDestination(botRight);
+                        changeDestination(tpL);
                         calcFlood3();
                         state++;
-                        // log("In State 0");
+                        log("On 0 In State 0");
                         break;
                 }
                 calcFlood(centers, true);
@@ -824,7 +865,6 @@ class FloodV2 : public Algorithm {
                 direction = move2();
             else
                 direction = move();
-
             switch (direction) {
                 case Turn::L:
                     api->turnLeft();
