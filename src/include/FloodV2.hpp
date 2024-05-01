@@ -712,6 +712,28 @@ class FloodV2 : public Algorithm {
         }
     }
 
+    int isBuggyCenter() {
+        const auto& botLeft{centers.at(0)};
+        const auto& botRight{centers.at(1)};
+        const auto& topLeft{centers.at(2)};
+        const auto& topRight{centers.at(3)};
+        for (auto& c : vector{topLeft, topRight, botLeft, botRight}) log(format("{}: {}", string{c}, indexCells(c)));
+        const auto isTopLeftExit = [this, &topLeft, &topRight, &botLeft, &botRight]() {
+            return indexCells(topLeft) == 2 && indexCells(topRight) == 7 && indexCells(botLeft) == 5 &&
+                   indexCells(botRight) == 6;
+        };
+        const auto isTopRightExit = [this, &topLeft, &topRight, &botLeft, &botRight]() {
+            return indexCells(topLeft) == 8 && indexCells(topRight) == 2 && indexCells(botLeft) == 5 &&
+                   indexCells(botRight) == 6;
+        };
+        if (isTopLeftExit())
+            return 1;
+        else if (isTopRightExit())
+            return 2;
+        else
+            return 0;
+    }
+
     bool isStuck() {
         auto surroundings{getSurroundings(currPos)};
         return rn::any_of(surroundings, [this](auto s) {
@@ -724,12 +746,30 @@ class FloodV2 : public Algorithm {
         int state = 0;
         bool fast{};
         bool goingToStart{};
+        bool bugged{};
 
         auto backToStart = [this, &goingToStart]() {
             log("Stuck!");
             changeDestination({0, 0});
             calcFlood(centers);
             goingToStart = true;
+        };
+
+        auto checkBugged = [this, &bugged](const int& buggy, const Coords& dest) {
+            bugged = true;
+            changeDestination(dest);
+            log(format("{} exit", buggy == 1 ? "Left" : "Right"));
+            if (buggy == 1 && orient == East) {
+                api->turnLeft();
+                orientation(Turn::L);
+                api->turnLeft();
+                orientation(Turn::L);
+            } else if (buggy == 2 && orient == West) {
+                api->turnRight();
+                orientation(Turn::R);
+                api->turnRight();
+                orientation(Turn::R);
+            }
         };
 
         calcFlood(centers);
@@ -812,7 +852,10 @@ class FloodV2 : public Algorithm {
                         break;
                     case 6:
                         center();
-                        changeDestination({0, 0});
+                        if (auto buggy = isBuggyCenter(); buggy != 0)
+                            checkBugged(buggy, {0, 0});
+                        else
+                            changeDestination({0, 0});
                         calcFlood3();
                         state++;
                         log("On 0 In State 6");
@@ -829,7 +872,10 @@ class FloodV2 : public Algorithm {
                         log("On 0 In State 4");
                         break;
                     case 3:
-                        changeDestination(btmR);
+                        if (auto buggy = isBuggyCenter(); buggy != 0)
+                            checkBugged(buggy, btmR);
+                        else
+                            changeDestination(btmR);
                         state++;
                         log("On 0 In State 3");
                         break;
@@ -865,28 +911,30 @@ class FloodV2 : public Algorithm {
                 direction = move2();
             else
                 direction = move();
-            switch (direction) {
-                case Turn::L:
-                    api->turnLeft();
-                    // log(format("Need to turn: {}", turnToString(Turn::L)));
-                    orientation(Turn::L);
-                    break;
-                case Turn::R:
-                    api->turnRight();
-                    // log(format("Need to turn: {}", turnToString(Turn::R)));
-                    orientation(Turn::R);
-                    break;
-                case Turn::B:
-                    api->turnLeft();
-                    orientation(Turn::L);
-                    // log(format("Need to turn: {}", turnToString(Turn::L)));
-                    api->turnLeft();
-                    // log(format("Need to turn: {}", turnToString(Turn::L)));
-                    orientation(Turn::L);
-                    break;
-                case Turn::F:
-                    break;
-            }
+            if (!bugged) switch (direction) {
+                    case Turn::L:
+                        api->turnLeft();
+                        // log(format("Need to turn: {}", turnToString(Turn::L)));
+                        orientation(Turn::L);
+                        break;
+                    case Turn::R:
+                        api->turnRight();
+                        // log(format("Need to turn: {}", turnToString(Turn::R)));
+                        orientation(Turn::R);
+                        break;
+                    case Turn::B:
+                        api->turnLeft();
+                        orientation(Turn::L);
+                        // log(format("Need to turn: {}", turnToString(Turn::L)));
+                        api->turnLeft();
+                        // log(format("Need to turn: {}", turnToString(Turn::L)));
+                        orientation(Turn::L);
+                        break;
+                    case Turn::F:
+                        break;
+                }
+            else
+                bugged = false;
             show();
             api->moveForward();
             prevPos = currPos;
