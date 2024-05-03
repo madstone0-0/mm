@@ -1,5 +1,11 @@
 #pragma once
 
+#ifdef ARDUINO
+#include <ArduinoSTL.h>
+#else
+#include <iostream>
+#endif
+
 #include <string>
 
 #include "API.hpp"
@@ -7,6 +13,7 @@
 using std::string;
 class MmsAPI : public API {
    public:
+    MmsAPI();
     virtual ~MmsAPI() = default;
     static int mazeWidth();
     static int mazeHeight();

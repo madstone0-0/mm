@@ -1,49 +1,23 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
-#include <boost/type_index.hpp>
 #include <cmath>
-#include <format>
-#include <iostream>
+#include <iterator>
 #include <queue>
 #include <vector>
 
 #include "Algorithm.hpp"
 #include "Coords.hpp"
+#include "Utils.hpp"
 #include "mms_api.hpp"
 
 enum class Orient { North = 0, East, South, West };
 
 enum class Turn { L = 'L', R = 'R', B = 'B', F = 'F' };
 
-using std::array, std::vector;
+using std::array, std::vector, Utils::format;
 using Maze = vector<vector<int>>;
 using Row = vector<int>;
-
-/* std::format inplementation taken from https://codereview.stackexchange.com/a/269429 */
-template <typename T>
-void format_helper(std::ostringstream& oss, std::string_view& str, const T& value) {
-    std::size_t openBracket = str.find('{');
-    if (openBracket == std::string::npos) {
-        return;
-    }
-    std::size_t closeBracket = str.find('}', openBracket + 1);
-    if (closeBracket == std::string::npos) {
-        return;
-    }
-    oss << str.substr(0, openBracket) << value;
-    str = str.substr(closeBracket + 1);
-}
-
-template <typename... Targs>
-std::string format(std::string_view str, Targs... args) {
-    std::ostringstream oss;
-    (format_helper(oss, str, args), ...);
-    oss << str;
-    return oss.str();
-}
-/* std::format inplementation taken from https://codereview.stackexchange.com/a/269429 */
 
 inline string orientToString(Orient o) {
     if (o == Orient::North) return "North";
@@ -72,21 +46,15 @@ inline string turnToString(Turn t) {
 
 static const int FLOOD_VAL{255};
 static const int CELL_VAL{0};
-class FloodV2 : public Algorithm {
+class FloodOptimized : public Algorithm {
    private:
-    auto& indexFlood(const Coords& c) { return flood.at(c.y).at(c.x); }
-    auto& indexFlood2(const Coords& c) { return flood2.at(c.y).at(c.x); }
+    int& indexFlood(const Coords& c) { return flood.at(c.y).at(c.x); }
+    int& indexFlood2(const Coords& c) { return flood2.at(c.y).at(c.x); }
     [[nodiscard]] bool wall(Coords c) const {
         return (c.x < 0 || c.x > mazeDim.x - 1) || (c.y < 0 || c.y > mazeDim.y - 1);
     }
 
-    auto& indexCells(const Coords& c) { return cells.at(c.y).at(c.x); }
-
-    template <typename Base, typename T>
-    inline bool instanceof (const T* ptr) {
-        auto res = dynamic_cast<const Base*>(ptr) != nullptr;
-        return res;
-    }
+    int& indexCells(const Coords& c) { return cells.at(c.y).at(c.x); }
 
     Coords mazeDim;
     Coords currPos;
@@ -99,7 +67,7 @@ class FloodV2 : public Algorithm {
     vector<Coords> centers;
 
    public:
-    explicit FloodV2(API* api, Coords mazeDim, const vector<Coords>& centers)
+    explicit FloodOptimized(API* api, Coords mazeDim, const vector<Coords>& centers)
         : Algorithm{api},
           mazeDim{mazeDim},
           currPos{},
@@ -108,7 +76,7 @@ class FloodV2 : public Algorithm {
           flood2(mazeDim.y, Row(mazeDim.x, FLOOD_VAL)),
           centers{centers} {}
 
-    explicit FloodV2(API* api, Coords mazeDim)
+    explicit FloodOptimized(API* api, Coords mazeDim)
         : Algorithm{api},
           mazeDim{mazeDim},
           currPos{},
@@ -121,7 +89,7 @@ class FloodV2 : public Algorithm {
         Coords midBotRight{midTopLeft.x + 1, midTopLeft.y + 1};
         centers = {midTopLeft, midTopRight, midBotLeft, midBotRight};
     }
-    ~FloodV2() override = default;
+    ~FloodOptimized() override = default;
 
     [[nodiscard]] vector<Coords> getSurroundings(const Coords& c) const {
         vector<Coords> surroundings{};
@@ -143,9 +111,6 @@ class FloodV2 : public Algorithm {
                 // int val{indexFlood2({x, y})};
                 // int val{indexCells({x, y})};
                 // api->setText(x, y, format("{}", val));
-                if (instanceof <MmsAPI>(api)) {
-                    dynamic_cast<MmsAPI*>(api)->setText(x, y, format("{}", val));
-                }
             }
         }
     }
@@ -203,215 +168,71 @@ class FloodV2 : public Algorithm {
     }
 
     void updateWalls(bool L, bool R, bool F) {
-        bool mms{ instanceof <MmsAPI>(api)};
-        auto wall16 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 'e');
-            api->setWall(currPos.x, currPos.y, 'w');
-            api->setWall(currPos.x, currPos.y, 's');
-        };
-
-        auto wall14 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'w');
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 's');
-        };
-
-        auto wall13 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 'w');
-            api->setWall(currPos.x, currPos.y, 'e');
-        };
-
-        auto wall12 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 's');
-            api->setWall(currPos.x, currPos.y, 'e');
-        };
-
-        auto wall11 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'w');
-            api->setWall(currPos.x, currPos.y, 'e');
-        };
-
-        auto wall10 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 's');
-        };
-
-        auto wall9 = [&wall11](MmsAPI* api) { wall11(api); };
-
-        auto wall8 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 'w');
-        };
-
-        auto wall7 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 'n');
-            api->setWall(currPos.x, currPos.y, 'e');
-        };
-
-        auto wall6 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 's');
-            api->setWall(currPos.x, currPos.y, 'e');
-        };
-
-        auto wall5 = [this](MmsAPI* api) {
-            api->setWall(currPos.x, currPos.y, 's');
-            api->setWall(currPos.x, currPos.y, 'w');
-        };
-
-        auto wall4 = [this](MmsAPI* api) { api->setWall(currPos.x, currPos.y, 's'); };
-
-        auto wall3 = [this](MmsAPI* api) { api->setWall(currPos.x, currPos.y, 'e'); };
-
-        auto wall2 = [this](MmsAPI* api) { api->setWall(currPos.x, currPos.y, 'n'); };
-
-        auto wall1 = [this](MmsAPI* api) { api->setWall(currPos.x, currPos.y, 'w'); };
-
         if (L && R && F) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 13;
-                if (mms) {
-                    wall13(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 12;
-                if (mms) {
-                    wall12(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 11;
-                if (mms) {
-                    wall11(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 14;
-                if (mms) {
-                    wall14(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (L && R && !F) {
             if (orient == Orient::North || orient == Orient::South) {
                 indexCells(currPos) = 9;
-                if (mms) {
-                    wall9(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East || orient == Orient::West) {
                 indexCells(currPos) = 10;
-                if (mms) {
-                    wall10(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (L && !R && F) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 8;
-                if (mms) {
-                    wall8(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 7;
-                if (mms) {
-                    wall7(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 6;
-                if (mms) {
-                    wall6(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 5;
-                if (mms) {
-                    wall5(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (!L && R && F) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 7;
-                if (mms) {
-                    wall7(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 6;
-                if (mms) {
-                    wall6(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 5;
-                if (mms) {
-                    wall5(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 8;
-                if (mms) {
-                    wall8(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (F) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 2;
-                if (mms) {
-                    wall2(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 3;
-                if (mms) {
-                    wall3(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 4;
-                if (mms) {
-                    wall4(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 1;
-                if (mms) {
-                    wall1(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (R) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 3;
-                if (mms) {
-                    wall3(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 4;
-                if (mms) {
-                    wall4(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 1;
-                if (mms) {
-                    wall1(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 2;
-                if (mms) {
-                    wall2(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else if (L) {
             if (orient == Orient::North) {
                 indexCells(currPos) = 1;
-                if (mms) {
-                    wall1(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::East) {
                 indexCells(currPos) = 2;
-                if (mms) {
-                    wall2(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::South) {
                 indexCells(currPos) = 3;
-                if (mms) {
-                    wall3(dynamic_cast<MmsAPI*>(api));
-                }
             } else if (orient == Orient::West) {
                 indexCells(currPos) = 4;
-                if (mms) {
-                    wall4(dynamic_cast<MmsAPI*>(api));
-                }
             }
         } else
             indexCells(currPos) = 15;
@@ -602,15 +423,6 @@ class FloodV2 : public Algorithm {
         moveQueue.push(dest);
     }
 
-    void printMouse() {
-        for (int i{}; i < flood.size(); ++i) {
-            for (int j{}; j < flood.size(); ++j) {
-                std::cout << format("{:2}", indexFlood({j, i})) << ' ';
-            }
-            std::cout << '\n';
-        }
-    }
-
     void center() {
         auto L = api->wallLeft();
         auto R = api->wallRight();
@@ -736,7 +548,8 @@ class FloodV2 : public Algorithm {
         const auto& botRight{centers.at(1)};
         const auto& topLeft{centers.at(2)};
         const auto& topRight{centers.at(3)};
-        for (auto& c : vector{topLeft, topRight, botLeft, botRight}) log(format("{}: {}", string{c}, indexCells(c)));
+        // for (auto& c : vector{
+        //     topLeft, topRight, botLeft, botRight}) log(format("{}: {}", string{c}, indexCells(c)));
         const auto isTopLeftExit = [this, &topLeft, &topRight, &botLeft, &botRight]() {
             // return indexCells(topLeft) == 2 && indexCells(topRight) == 7 && indexCells(botLeft) == 5 &&
             //        indexCells(botRight) == 6;
@@ -755,9 +568,18 @@ class FloodV2 : public Algorithm {
             return 0;
     }
 
+    template <typename Itr, typename Func>
+    bool any_of(Itr beg, Itr end, Func f) {
+        while (beg != end) {
+            if (f(*beg)) return true;
+            std::advance(beg, 1);
+        }
+        return false;
+    }
+
     bool isStuck() {
         auto surroundings{getSurroundings(currPos)};
-        return std::any_of(surroundings.cbegin(), surroundings.cend(), [this](auto s) {
+        return any_of(surroundings.begin(), surroundings.begin(), [this](Coords s) {
             if (!wall(s) && isAccessible(currPos, s)) return indexFlood(s) == FLOOD_VAL;
             return false;
         });
@@ -770,7 +592,7 @@ class FloodV2 : public Algorithm {
         bool bugged{};
 
         auto backToStart = [this, &goingToStart]() {
-            log("Stuck!");
+            //  log("Stuck!");
             changeDestination({0, 0});
             calcFlood(centers);
             goingToStart = true;
@@ -779,7 +601,7 @@ class FloodV2 : public Algorithm {
         auto checkBugged = [this, &bugged](const int& buggy, const Coords& dest) {
             bugged = true;
             changeDestination(dest);
-            log(format("{} exit", buggy == 1 ? "Left" : "Right"));
+            //  log(format("{} exit", buggy == 1 ? "Left" : "Right"));
             if (buggy == 1 && orient == Orient::East) {
                 api->turnLeft();
                 orientation(Turn::L);
@@ -795,9 +617,6 @@ class FloodV2 : public Algorithm {
 
         calcFlood(centers);
         while (true) {
-            if (instanceof <MmsAPI>(api)) {
-                dynamic_cast<MmsAPI*>(api)->setColor(currPos.x, currPos.y, 'B');
-            }
             auto L = api->wallLeft();
             auto R = api->wallRight();
             auto F = api->wallFront();
@@ -811,7 +630,7 @@ class FloodV2 : public Algorithm {
                 switch (state) {
                     case 0:
                         appendCenters();
-                        log("In State 0");
+                        //  log("In State 0");
                         break;
                     case 1:
                         // appendDest({15, 0});
@@ -823,18 +642,18 @@ class FloodV2 : public Algorithm {
                         }
 
                         fast = false;
-                        log("In State 1");
+                        //  log("In State 1");
                         break;
                     case 2:
                         appendDest({0, 0});
                         fast = false;
-                        log("In State 2");
+                        //  log("In State 2");
                         break;
                     case 3:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        log("In State 3");
+                        //  log("In State 3");
                         break;
                     case 4:
                         // appendDest({0, 15});
@@ -845,30 +664,30 @@ class FloodV2 : public Algorithm {
                                 backToStart();
                         }
                         fast = false;
-                        log("In State 4");
+                        //  log("In State 4");
                         break;
                     case 5:
                         appendDest({0, 0});
                         fast = false;
-                        log("In State 5");
+                        //  log("In State 5");
                         break;
                     case 6:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        log("In State 6");
+                        //  log("In State 6");
                         break;
                     case 7:
                         appendDest({0, 0});
                         fast = false;
-                        log("In state 7");
+                        //  log("In state 7");
                         break;
                 }
                 calcFlood3();
             } else {
                 switch (state) {
                     case 7:
-                        log("On 0 In State 7");
+                        //  log("On 0 In State 7");
                         return;
                         break;
                     case 6:
@@ -879,18 +698,18 @@ class FloodV2 : public Algorithm {
                             changeDestination({0, 0});
                         calcFlood3();
                         state++;
-                        log("On 0 In State 6");
+                        //  log("On 0 In State 6");
                         break;
                     case 5:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        log("On 0 In State 5");
+                        //  log("On 0 In State 5");
                         break;
                     case 4:
                         changeDestination({0, 0});
                         state++;
-                        log("On 0 In State 4");
+                        //  log("On 0 In State 4");
                         break;
                     case 3:
                         if (auto buggy = isBuggyCenter(); buggy != 0)
@@ -898,26 +717,26 @@ class FloodV2 : public Algorithm {
                         else
                             changeDestination(btmR);
                         state++;
-                        log("On 0 In State 3");
+                        //  log("On 0 In State 3");
                         break;
                     case 2:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        log("On 0 In State 2");
+                        //  log("On 0 In State 2");
                         break;
                     case 1:
                         goingToStart = false;
                         changeDestination({0, 0});
                         state++;
-                        log("On 0 In State 1");
+                        //  log("On 0 In State 1");
                         break;
                     case 0:
                         center();
                         changeDestination(tpL);
                         calcFlood3();
                         state++;
-                        log("On 0 In State 0");
+                        //  log("On 0 In State 0");
                         break;
                 }
                 calcFlood(centers, true);

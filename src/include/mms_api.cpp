@@ -1,21 +1,22 @@
 #include "mms_api.hpp"
 
-#include <iostream>
-
 using std::cout, std::cin;
-int MmsAPI::mazeWidth() {
-    cout << "mazeWidth" << '\n';
-    string response;
-    cin >> response;
-    return std::stoi(response);
-}
+// int MmsAPI::mazeWidth() {
+//     cout << "mazeWidth" << '\n';
+//     string response;
+//     cin >> response;
+//     return std::stoi(response);
+// }
+//
+// int MmsAPI::mazeHeight() {
+//     cout << "mazeHeight" << '\n';
+//     string response;
+//     cin >> response;
+//     return std::stoi(response);
+// }
+//
 
-int MmsAPI::mazeHeight() {
-    cout << "mazeHeight" << '\n';
-    string response;
-    cin >> response;
-    return std::stoi(response);
-}
+MmsAPI::MmsAPI() = default;
 
 bool MmsAPI::wallFront() {
     cout << "wallFront" << '\n';
@@ -49,8 +50,7 @@ void MmsAPI::moveForward(int distance) {
     string response;
     cin >> response;
     if (response != "ack") {
-        std::cerr << response << '\n';
-        throw;
+        std::cout << response << '\n';
     }
 }
 

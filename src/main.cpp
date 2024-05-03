@@ -1,20 +1,25 @@
-#include <array>
+#ifdef ARDUNIO
+#include <ArduinoSTL.h>
+#else
 #include <iostream>
+#endif  // ARDUNIO
+
+#include <array>
 #include <string>
 
-#include "Algorithm.hpp"
-#include "FloodV2.hpp"
-#include "LeftTurn.hpp"
+// #include "FloodV2.hpp"
+#include "include/Algorithm.hpp"
+#include "include/Coords.hpp"
+#include "include/FloodOptimized.hpp"
 
 using namespace std;
 
-void log(const std::string& text) { std::cerr << text << '\n'; }
+void log(const std::string& text) { std::cout << text << '\n'; }
 
 int main() {
     MmsAPI api{};
-    auto left{LeftTurn{&api}};
-    auto mazeDim{Coords{api.mazeWidth(), api.mazeHeight()}};
-    auto flood{FloodV2{&api, mazeDim}};
+    auto mazeDim{Coords{16, 16}};
+    auto flood{FloodOptimized{&api, mazeDim}};
 
     Algorithm* algo = &flood;
 
