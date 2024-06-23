@@ -1,67 +1,66 @@
+#include <string>
+
+#include "HardwareSerial.h"
 #pragma once
+#include <cppQueue.h>
 
 #include <array>
-#include <cmath>
+#include <cstdint>
 #include <iterator>
 #include <queue>
 #include <vector>
 
 #include "Algorithm.hpp"
 #include "Coords.hpp"
+#include "Mouse_API.hpp"
 #include "Utils.hpp"
+
+#define IMPL LIFO
 
 enum class Orient { North = 0, East, South, West };
 
 enum class Turn { L = 'L', R = 'R', B = 'B', F = 'F' };
 
 using std::array, std::vector, Utils::format;
-using Maze = vector<vector<int>>;
-using Row = vector<int>;
+// using Maze = vector<vector<int>>;
+// using Maze = uint8_t[16][16];
+// using Maze = uint8_t[16][16];
+using Maze = array<array<uint8_t, 16>, 16>;
 
-static const int FLOOD_VAL{255};
-static const int CELL_VAL{0};
+static const uint8_t FLOOD_VAL{200};
+static const uint8_t CELL_VAL{0};
+
 class FloodMouse : public Algorithm {
    private:
-    int& indexFlood(const Coords& c) { return flood.at(c.y).at(c.x); }
-    int& indexFlood2(const Coords& c) { return flood2.at(c.y).at(c.x); }
+    int indexFlood(Coords c) { return flood[c.y][c.x]; }
+    int indexFlood2(Coords c) { return flood2[c.y][c.x]; }
+    void setFlood(Coords c, int val) { flood[c.y][c.x] = val; }
+    void setFlood2(Coords c, int val) { flood2[c.y][c.x] = val; }
     [[nodiscard]] bool wall(Coords c) const {
         return (c.x < 0 || c.x > mazeDim.x - 1) || (c.y < 0 || c.y > mazeDim.y - 1);
     }
 
-    int& indexCells(const Coords& c) { return cells.at(c.y).at(c.x); }
+    auto& indexCells(Coords c) { return cells[c.y][c.x]; }
 
-    Coords mazeDim;
-    Coords currPos;
+    Coords mazeDim{};
+    Coords currPos{};
     Coords prevPos{};
     Maze cells{};
-    Maze flood;
-    Maze flood2;
+    Maze flood{};
+    Maze flood2{};
     Orient orient{Orient::North};
-    std::queue<Coords> moveQueue{};
+    cppQueue moveQueue{sizeof(Coords), 256};
     vector<Coords> centers;
 
    public:
-    explicit FloodMouse(API* api, Coords mazeDim, const vector<Coords>& centers)
-        : Algorithm{api},
-          mazeDim{mazeDim},
-          currPos{},
-          cells(mazeDim.y, Row(mazeDim.x, CELL_VAL)),
-          flood(mazeDim.y, Row(mazeDim.x, FLOOD_VAL)),
-          flood2(mazeDim.y, Row(mazeDim.x, FLOOD_VAL)),
-          centers{centers} {}
-
-    explicit FloodMouse(API* api, Coords mazeDim)
-        : Algorithm{api},
-          mazeDim{mazeDim},
-          currPos{},
-          cells(mazeDim.y, Row(mazeDim.x, CELL_VAL)),
-          flood(mazeDim.y, Row(mazeDim.x, FLOOD_VAL)),
-          flood2(mazeDim.y, Row(mazeDim.x, FLOOD_VAL)) {
-        Coords midTopLeft{(int)floor(mazeDim.x / 2.0) - 1, (int)floor(mazeDim.y / 2.0) - 1};
-        Coords midTopRight{midTopLeft.x + 1, midTopLeft.y};
-        Coords midBotLeft{midTopLeft.x, midTopLeft.y + 1};
-        Coords midBotRight{midTopLeft.x + 1, midTopLeft.y + 1};
-        centers = {midTopLeft, midTopRight, midBotLeft, midBotRight};
+    explicit FloodMouse(Mouse_API* api, Coords mazeDim, const vector<Coords>& centers)
+        : Algorithm{api}, mazeDim{mazeDim}, centers{centers} {
+        for (int y = 0; y < mazeDim.y; y++)
+            for (int x = 0; x < mazeDim.x; x++) {
+                cells[y][x] = CELL_VAL;
+                flood[y][x] = FLOOD_VAL;
+                flood2[y][x] = FLOOD_VAL;
+            }
     }
     ~FloodMouse() override = default;
 
@@ -76,17 +75,6 @@ class FloodMouse : public Algorithm {
         if (directions.at(1).x >= mazeDim.x) directions.at(1).x = -1;
         if (directions.at(0).y >= mazeDim.y) directions.at(0).y = -1;
         return surroundings;
-    }
-
-    void show() {
-        for (int x{}; x < mazeDim.x; x++) {
-            for (int y{}; y < mazeDim.y; y++) {
-                int val{indexFlood({x, y})};
-                // int val{indexFlood2({x, y})};
-                // int val{indexCells({x, y})};
-                // api->setText(x, y, format("{}", val));
-            }
-        }
     }
 
     /**
@@ -213,27 +201,27 @@ class FloodMouse : public Algorithm {
     }
 
     /*
-    Calculate Flood algorithm for either initial run or 2nd run
-    */
+      Calculate Flood algorithm for either initial run or 2nd run
+      */
     void calcFlood(const vector<Coords>& start, bool isTwo = false) {
         for (int i = 0; i < mazeDim.y; i++) {
             for (int j = 0; j < mazeDim.x; j++) {
                 if (isTwo)
-                    indexFlood2({j, i}) = FLOOD_VAL;
+                    setFlood2({j, i}, FLOOD_VAL);
 
                 else
-                    indexFlood({j, i}) = FLOOD_VAL;
+                    setFlood({j, i}, FLOOD_VAL);
             }
         }
 
         std::queue<Coords> q{};
-        for (const auto& s : start) {
+        for (const Coords& s : start) {
             q.push(s);
             if (isTwo)
-                indexFlood2(s) = 0;
+                setFlood2(s, 0);
 
             else
-                indexFlood(s) = 0;
+                setFlood(s, 0);
         }
 
         while (!q.empty()) {
@@ -241,17 +229,17 @@ class FloodMouse : public Algorithm {
             q.pop();
 
             auto surroundings{getSurroundings(current)};
-            for (const auto& next : surroundings) {
+            for (const Coords& next : surroundings) {
                 if (wall(next)) continue;
                 if (indexCells(next) == 0) continue;
                 if (isTwo) {
                     if (indexFlood2(next) == FLOOD_VAL && isAccessible(current, next)) {
-                        indexFlood2(next) = indexFlood2(current) + 1;
+                        setFlood2(next, indexFlood2(current) + 1);
                         q.push(next);
                     }
                 } else {
                     if (indexFlood(next) == FLOOD_VAL && isAccessible(current, next)) {
-                        indexFlood(next) = indexFlood(current) + 1;
+                        setFlood(next, indexFlood(current) + 1);
                         q.push(next);
                     }
                 }
@@ -260,16 +248,16 @@ class FloodMouse : public Algorithm {
     }
 
     void calcFlood3() {
-        while (!moveQueue.empty()) {
-            auto current = moveQueue.front();
-            moveQueue.pop();
+        while (!moveQueue.isEmpty()) {
+            Coords current;
+            moveQueue.pop(&current);
 
             auto surroundings{getSurroundings(current)};
-            for (const auto& next : surroundings) {
+            for (auto next : surroundings) {
                 if (wall(next)) continue;
                 if (indexFlood(next) == FLOOD_VAL && isAccessible(current, next)) {
-                    indexFlood(next) = indexFlood(current) + 1;
-                    moveQueue.push(next);
+                    setFlood(next, indexFlood(current) + 1);
+                    moveQueue.push(&next);
                 }
             }
         }
@@ -281,9 +269,9 @@ class FloodMouse : public Algorithm {
         vector<long> minVals{1000, 1000, 1000, 1000};
 
         for (size_t i{}; i < surroundings.size(); i++) {
-            const auto& s = surroundings.at(i);
-            const auto& x1 = s.x;
-            const auto& y1 = s.y;
+            auto s = surroundings.at(i);
+            auto x1 = s.x;
+            auto y1 = s.y;
             if (!wall(s) && isAccessible(currPos, s)) {
                 if (x1 == prevPos.x && y1 == prevPos.y) {
                     prev = static_cast<Orient>(i);
@@ -297,14 +285,14 @@ class FloodMouse : public Algorithm {
         int minCell{};
         int numMov{};
 
-        for (const auto& val : minVals) {
+        for (auto val : minVals) {
             if (val != 1000) numMov++;
         }
 
         int currMinI{};
         long currMinVal{};
         for (int i{}; i < 4; i++) {
-            const auto& val = minVals.at(i);
+            auto val = minVals.at(i);
             if (val <= minVal) {
                 currMinI = i;
                 currMinVal = val;
@@ -354,7 +342,7 @@ class FloodMouse : public Algorithm {
         auto val = indexFlood2(currPos);
         int minCell = 0;
         for (int i{}; i < surroundings.size(); i++) {
-            const auto& next = surroundings.at(i);
+            auto next = surroundings.at(i);
             if (wall(next)) continue;
             if (isAccessible(currPos, next)) {
                 if (indexFlood2(next) == val - 1) minCell = i;
@@ -376,25 +364,30 @@ class FloodMouse : public Algorithm {
     void appendCenters() {
         for (int i = 0; i < mazeDim.y; i++) {
             for (int j = 0; j < mazeDim.x; j++) {
-                indexFlood({j, i}) = FLOOD_VAL;
+                setFlood({j, i}, FLOOD_VAL);
             }
         }
 
         for (const auto& c : centers) {
-            indexFlood(c) = 0;
-            moveQueue.push(c);
+            setFlood(c, 0);
+            moveQueue.push(&c);
         }
+
+        // for (Coords c : centers) {
+        //     setFlood(c, 0);
+        //     moveQueue.push(c);
+        // }
     }
 
     void appendDest(const Coords& dest) {
         for (int i = 0; i < mazeDim.y; i++) {
             for (int j = 0; j < mazeDim.x; j++) {
-                indexFlood({j, i}) = FLOOD_VAL;
+                setFlood({j, i}, FLOOD_VAL);
             }
         }
 
-        indexFlood(dest) = 0;
-        moveQueue.push(dest);
+        setFlood(dest, 0);
+        moveQueue.push(&dest);
     }
 
     void center() {
@@ -493,47 +486,36 @@ class FloodMouse : public Algorithm {
     void changeDestination(const Coords& dest) {
         for (int i = 0; i < mazeDim.y; i++) {
             for (int j = 0; j < mazeDim.x; j++) {
-                indexFlood({j, i}) = FLOOD_VAL;
+                setFlood({j, i}, FLOOD_VAL);
             }
         }
+        // log(format("Dest to ({}, {})", dest.x, dest.y).c_str());
 
-        std::queue<Coords> q;
-        indexFlood(dest) = 0;
+        cppQueue q{sizeof(Coords), 50, IMPL};
+        setFlood(dest, 0);
 
-        q.push(dest);
+        q.push(&dest);
 
-        while (!q.empty()) {
-            auto current = q.front();
-            q.pop();
+        while (!q.isEmpty()) {
+            Coords current;
+            q.pop(&current);
 
             auto surroundings{getSurroundings(current)};
-            for (const auto& next : surroundings) {
+            for (auto next : surroundings) {
                 if (wall(next)) continue;
                 if (indexFlood(next) == FLOOD_VAL) {
-                    indexFlood(next) = indexFlood(current) + 1;
-                    q.push(next);
+                    setFlood(next, indexFlood(current) + 1);
+                    q.push(&next);
                 }
             }
         }
     }
 
     int isBuggyCenter() {
-        const auto& botLeft{centers.at(0)};
-        const auto& botRight{centers.at(1)};
-        const auto& topLeft{centers.at(2)};
-        const auto& topRight{centers.at(3)};
-        // for (auto& c : vector{
-        //     topLeft, topRight, botLeft, botRight}) log(format("{}: {}", string{c}, indexCells(c)));
-        const auto isTopLeftExit = [this, &topLeft, &topRight, &botLeft, &botRight]() {
-            // return indexCells(topLeft) == 2 && indexCells(topRight) == 7 && indexCells(botLeft) == 5 &&
-            //        indexCells(botRight) == 6;
-            return indexCells(topLeft) == 2;
-        };
-        const auto isTopRightExit = [this, &topLeft, &topRight, &botLeft, &botRight]() {
-            // return indexCells(topLeft) == 8 && indexCells(topRight) == 2 && indexCells(botLeft) == 5 &&
-            //        indexCells(botRight) == 6;
-            return indexCells(topRight) == 2;
-        };
+        auto topLeft{centers.at(2)};
+        auto topRight{centers.at(3)};
+        const auto isTopLeftExit = [this, &topLeft]() { return indexCells(topLeft) == 2; };
+        const auto isTopRightExit = [this, &topRight]() { return indexCells(topRight) == 2; };
         if (isTopLeftExit())
             return 1;
         else if (isTopRightExit())
@@ -546,49 +528,50 @@ class FloodMouse : public Algorithm {
     bool any_of(Itr beg, Itr end, Func f) {
         while (beg != end) {
             if (f(*beg)) return true;
-            std::advance(beg, 1);
+            ++beg;
         }
         return false;
     }
 
     bool isStuck() {
         auto surroundings{getSurroundings(currPos)};
-        return any_of(surroundings.begin(), surroundings.begin(), [this](Coords s) {
+        return any_of(surroundings.begin(), surroundings.end(), [this](auto s) {
             if (!wall(s) && isAccessible(currPos, s)) return indexFlood(s) == FLOOD_VAL;
             return false;
         });
     }
 
+    void checkBugged(bool& bugged, int buggy, const Coords& dest) {
+        bugged = true;
+        changeDestination(dest);
+        if (buggy == 1 && orient == Orient::East) {
+            api->turnLeft();
+            orientation(Turn::L);
+            api->turnLeft();
+            orientation(Turn::L);
+        } else if (buggy == 2 && orient == Orient::West) {
+            api->turnRight();
+            orientation(Turn::R);
+            api->turnRight();
+            orientation(Turn::R);
+        }
+    }
+
     void start() override {
-        int state = 0;
+        int state{};
         bool fast{};
         bool goingToStart{};
         bool bugged{};
+        uint8_t buggy{};
 
         auto backToStart = [this, &goingToStart]() {
-            //  log("Stuck!");
+            log("Stuck!");
             changeDestination({0, 0});
             calcFlood(centers);
             goingToStart = true;
         };
 
-        auto checkBugged = [this, &bugged](const int& buggy, const Coords& dest) {
-            bugged = true;
-            changeDestination(dest);
-            //  log(format("{} exit", buggy == 1 ? "Left" : "Right"));
-            if (buggy == 1 && orient == Orient::East) {
-                api->turnLeft();
-                orientation(Turn::L);
-                api->turnLeft();
-                orientation(Turn::L);
-            } else if (buggy == 2 && orient == Orient::West) {
-                api->turnRight();
-                orientation(Turn::R);
-                api->turnRight();
-                orientation(Turn::R);
-            }
-        };
-
+        Serial.println("In Start");
         calcFlood(centers);
         while (true) {
             auto L = api->wallLeft();
@@ -604,7 +587,7 @@ class FloodMouse : public Algorithm {
                 switch (state) {
                     case 0:
                         appendCenters();
-                        //  log("In State 0");
+                        log("In State 0");
                         break;
                     case 1:
                         // appendDest({15, 0});
@@ -616,18 +599,18 @@ class FloodMouse : public Algorithm {
                         }
 
                         fast = false;
-                        //  log("In State 1");
+                        log("In State 1");
                         break;
                     case 2:
                         appendDest({0, 0});
                         fast = false;
-                        //  log("In State 2");
+                        log("In State 2");
                         break;
                     case 3:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        //  log("In State 3");
+                        log("In State 3");
                         break;
                     case 4:
                         // appendDest({0, 15});
@@ -638,85 +621,79 @@ class FloodMouse : public Algorithm {
                                 backToStart();
                         }
                         fast = false;
-                        //  log("In State 4");
+                        log("In State 4");
                         break;
                     case 5:
                         appendDest({0, 0});
                         fast = false;
-                        //  log("In State 5");
+                        log("In State 5");
                         break;
                     case 6:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        //  log("In State 6");
+                        log("In State 6");
                         break;
                     case 7:
                         appendDest({0, 0});
                         fast = false;
-                        //  log("In state 7");
+                        log("In state 7");
                         break;
                 }
                 calcFlood3();
             } else {
                 switch (state) {
                     case 7:
-                        //  log("On 0 In State 7");
                         return;
                         break;
                     case 6:
                         center();
-                        if (auto buggy = isBuggyCenter(); buggy != 0)
-                            checkBugged(buggy, {0, 0});
+                        if (buggy != 0)
+                            checkBugged(bugged, buggy, {0, 0});
                         else
                             changeDestination({0, 0});
                         calcFlood3();
                         state++;
-                        //  log("On 0 In State 6");
                         break;
                     case 5:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        //  log("On 0 In State 5");
                         break;
                     case 4:
                         changeDestination({0, 0});
                         state++;
-                        //  log("On 0 In State 4");
                         break;
                     case 3:
-                        if (auto buggy = isBuggyCenter(); buggy != 0)
-                            checkBugged(buggy, btmR);
+                        if (buggy != 0)
+                            checkBugged(bugged, buggy, btmR);
                         else
                             changeDestination(btmR);
                         state++;
-                        //  log("On 0 In State 3");
                         break;
                     case 2:
                         appendCenters();
                         calcFlood3();
                         state++;
-                        //  log("On 0 In State 2");
                         break;
                     case 1:
                         goingToStart = false;
                         changeDestination({0, 0});
                         state++;
-                        //  log("On 0 In State 1");
                         break;
                     case 0:
+                        log("On 0 in state 0");
                         center();
                         changeDestination(tpL);
                         calcFlood3();
+                        buggy = isBuggyCenter();
                         state++;
-                        //  log("On 0 In State 0");
                         break;
                 }
                 calcFlood(centers, true);
             }
 
-            // if (state == 6) done = true;
+            // // if (state == 6) done = true;
 
             // move to least accessible cell
             Turn direction{};
@@ -749,7 +726,6 @@ class FloodMouse : public Algorithm {
                 }
             else
                 bugged = false;
-            show();
             api->moveForward();
             prevPos = currPos;
             updatePos();

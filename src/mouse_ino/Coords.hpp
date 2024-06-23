@@ -10,7 +10,8 @@ struct Coords {
 
     bool operator==(const Coords& rhs) const { return x == rhs.x && y == rhs.y; }
 
-    // Coords(int x, int y) : x{x}, y{y} {}
+    Coords(const int& x, const int& y) : x{x}, y{y} {}
+    Coords() : x{}, y{} {}
     //
     // Coords() = default;
     //
@@ -22,22 +23,6 @@ struct Coords {
     //
     // ~Coords() = default;
     //
-    // Coords& operator=(Coords other) {
-    //     swap(other, *this);
-    //     return *this;
-    // }
-
-    friend std::ostream& operator<<(std::ostream& s, Coords coords) {
-        s << "( " << coords.x << "," << coords.y << " )" << '\n';
-        return s;
-    }
 
     operator std::string() const { return Utils::format("( {}, {} )", x, y); }
-
-   private:
-    friend void swap(Coords& first, Coords& second) noexcept {
-        using std::swap;
-        swap(first.x, second.x);
-        swap(first.y, second.y);
-    }
 };

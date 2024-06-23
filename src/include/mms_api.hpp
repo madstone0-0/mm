@@ -1,11 +1,6 @@
 #pragma once
 
-#ifdef ARDUINO
-#include <ArduinoSTL.h>
-#else
 #include <iostream>
-#endif
-
 #include <string>
 
 #include "API.hpp"

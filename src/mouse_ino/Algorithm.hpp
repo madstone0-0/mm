@@ -1,10 +1,8 @@
 #pragma once
 
-#ifdef ARDUNIO
 #include <ArduinoSTL.h>
-#else
+
 #include <iostream>
-#endif  // ARDUNIO
 
 #include "API.hpp"
 
@@ -15,5 +13,5 @@ struct Algorithm {
 
    protected:
     API* api;
-    void log(const std::string& str) { std::cout << str << '\n'; }
+    void log(const std::string& str) { Serial.println(str.c_str()); }
 };

@@ -22,7 +22,7 @@ build_debug() {
 build_ardinuo() {
 	echo "Building Arduino"
 	mkdir -p "$ARDUINO"
-	CXX=$COMPIER_ARD cmake -G 'Ninja' -S . -B "$ARDUINO" -DCMAKE_BUILD_TYPE=Debug -DARDUINO=ON && ninja -C "$ARDUINO"/ &>ard.log
+	CXX=$COMPIER_ARD cmake -G 'Ninja' -S . -B "$ARDUINO" -DCMAKE_BUILD_TYPE=Debug -DARDUINO=ON -DARDUINO_CMAKE=OFF && ninja -C "$ARDUINO"/ &>ard.log
 }
 
 build_ardinuo_cmake() {
