@@ -13,17 +13,20 @@ void blink(int pin, int d) {
 // AlgoHandler handler{};
 // Algorithm* algo{ handler.algo };
 using Pins = std::array<uint8_t, 4>;
-Pins leftMotor{2, 5, 3, 4};
-Pins rightMotor{6, 7, 8, 9};
-Mouse_API mouse{leftMotor, rightMotor};
+Pins leftMotor{ 2, 5, 3, 4 };
+Pins rightMotor{ 6, 7, 8, 9 };
+std::array<uint8_t, 2> encoderPinsLR{ 10, 11 };  // Not acc
+Mouse_API mouse{ leftMotor, rightMotor, encoderPinsLR };
 FloodMouse flood{ &mouse, Coords{ 16, 16 }, vector<Coords>{ { 7, 7 }, { 7, 8 }, { 8, 7 }, { 8, 8 } } };
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Starting");
   pinMode(13, OUTPUT);
-  for(const auto& i : leftMotor) pinMode(i, OUTPUT);
-  for(const auto& i : rightMotor) pinMode(i, OUTPUT);
+  for (const auto& i : leftMotor) pinMode(i, OUTPUT);
+  for (const auto& i : rightMotor) pinMode(i, OUTPUT);
+  for (const auto& i : encoderPinsLR) pinMode(i, INPUT);
+  mouse.setupInterrupts();
 }
 
 

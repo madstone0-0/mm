@@ -565,7 +565,7 @@ class FloodMouse : public Algorithm {
         uint8_t buggy{};
 
         auto backToStart = [this, &goingToStart]() {
-            log("Stuck!");
+            // log("Stuck!");
             changeDestination({0, 0});
             calcFlood(centers);
             goingToStart = true;
@@ -587,7 +587,7 @@ class FloodMouse : public Algorithm {
                 switch (state) {
                     case 0:
                         appendCenters();
-                        log("In State 0");
+                        // log("In State 0");
                         break;
                     case 1:
                         // appendDest({15, 0});
@@ -599,18 +599,18 @@ class FloodMouse : public Algorithm {
                         }
 
                         fast = false;
-                        log("In State 1");
+                        // log("In State 1");
                         break;
                     case 2:
                         appendDest({0, 0});
                         fast = false;
-                        log("In State 2");
+                        // log("In State 2");
                         break;
                     case 3:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        log("In State 3");
+                        // log("In State 3");
                         break;
                     case 4:
                         // appendDest({0, 15});
@@ -621,23 +621,23 @@ class FloodMouse : public Algorithm {
                                 backToStart();
                         }
                         fast = false;
-                        log("In State 4");
+                        // log("In State 4");
                         break;
                     case 5:
                         appendDest({0, 0});
                         fast = false;
-                        log("In State 5");
+                        // log("In State 5");
                         break;
                     case 6:
                         appendCenters();
                         calcFlood(centers, true);
                         fast = true;
-                        log("In State 6");
+                        // log("In State 6");
                         break;
                     case 7:
                         appendDest({0, 0});
                         fast = false;
-                        log("In state 7");
+                        // log("In state 7");
                         break;
                 }
                 calcFlood3();
@@ -682,7 +682,7 @@ class FloodMouse : public Algorithm {
                         state++;
                         break;
                     case 0:
-                        log("On 0 in state 0");
+                        // log("On 0 in state 0");
                         center();
                         changeDestination(tpL);
                         calcFlood3();
@@ -692,6 +692,8 @@ class FloodMouse : public Algorithm {
                 }
                 calcFlood(centers, true);
             }
+
+            api->loop();
 
             // // if (state == 6) done = true;
 
